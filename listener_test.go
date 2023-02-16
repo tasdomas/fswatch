@@ -20,3 +20,9 @@ func TestEventFilter(t *testing.T) {
 	c.Assert(filter.Pass(fsnotify.Write), qt.IsTrue)
 	c.Assert(filter.Pass(fsnotify.Rename), qt.IsFalse)
 }
+
+func TestOpSlice(t *testing.T) {
+	c := qt.New(t)
+	op := fsnotify.Create | fsnotify.Rename
+	c.Assert(eventList(op), qt.DeepEquals, []string{"create", "rename"})
+}

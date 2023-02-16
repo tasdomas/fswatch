@@ -4,14 +4,19 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
 )
 
+type runner interface {
+	Run(ctx context.Context, path string, events []string) error
+}
+
 // NewListener creates a  new listener that will respond to the provided
 // set of events.
-func NewListener(events []string) (*Listener, error) {
+func NewListener(r runner, events []string) (*Listener, error) {
 	var filter eventFilter = allEvents{}
 	if len(events) > 0 {
 		var err error
@@ -20,12 +25,16 @@ func NewListener(events []string) (*Listener, error) {
 			return nil, err
 		}
 	}
-	return &Listener{eventFilter: filter}, nil
+	return &Listener{
+		eventFilter: filter,
+		runner:      r,
+	}, nil
 }
 
 // Listener listens for operation events emitted by fsnotify.Watcher.
 type Listener struct {
 	eventFilter eventFilter
+	runner      runner
 }
 
 // Listen starts processing the provided event and error channels.
@@ -38,6 +47,7 @@ func (l Listener) Listen(ctx context.Context, events <-chan fsnotify.Event, erro
 				continue
 			}
 			log.Printf("received event %s on path %s", evt.Op, evt.Name)
+			l.runner.Run(ctx, evt.Name, eventList(evt.Op))
 		case err := <-errors:
 			log.Printf("fsnotify error: %v", err)
 		case <-ctx.Done():
@@ -84,3 +94,22 @@ type allEvents struct{}
 
 // Pass allows all events to go through.
 func (allEvents) Pass(fsnotify.Op) bool { return true }
+
+var ops = map[fsnotify.Op]string{
+	fsnotify.Chmod:  "chmod",
+	fsnotify.Create: "create",
+	fsnotify.Remove: "remove",
+	fsnotify.Rename: "rename",
+	fsnotify.Write:  "write",
+}
+
+func eventList(op fsnotify.Op) []string {
+	var result []string
+	for evt, name := range ops {
+		if op.Has(evt) {
+			result = append(result, name)
+		}
+	}
+	sort.Strings(result)
+	return result
+}

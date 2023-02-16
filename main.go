@@ -13,11 +13,13 @@ func main() {
 	ctx := context.Background()
 
 	var events []string
+	var cmdTpl string
 	var pth string
 	var cmd string
 
 	fs := flag.NewFlagSet("fswatch", flag.ExitOnError)
 	fs.StringSliceVarP(&events, "events", "e", nil, "Comma-separated list of events to watch.")
+	fs.StringVarP(&cmdTpl, "command", "c", "echo {Path} {Events}", "Command template")
 	err := fs.Parse(os.Args[1:])
 	if err == flag.ErrHelp {
 		panic("TODO: usage")
@@ -40,7 +42,9 @@ func main() {
 		os.Exit(2)
 	}
 
-	listener, err := NewListener(events)
+	runner := NewCommandRunner(cmdTpl)
+
+	listener, err := NewListener(runner, events)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to setup listener: %s\n", err.Error())
 		os.Exit(2)

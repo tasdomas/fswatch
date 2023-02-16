@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -35,6 +36,8 @@ func (c *CommandRunner) Run(ctx context.Context, path string, events []string) e
 
 	name, args := splitCommand(cmdRaw)
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	c.group.Go(func() error {
 		err := cmd.Run()
 		if err != nil {

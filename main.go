@@ -9,6 +9,30 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
+var helpText string = `
+fswatch - watch provided path for changes and run a specified command
+
+Usage
+=====
+
+fswatch [--events <event_list>] [--command <command>] PATH
+
+The event list is a comma separated list of events to watch for.
+Supported events are:
+  - chmod
+  - create
+  - remove
+  - rename
+  - write
+
+The path where the change was detected and the corresponding events can
+be passed to the command using {Path} and {Events} placeholders, which will
+be substituded with the path and the comma-separated list of events:
+
+$ fswatch --command 'echo {Path} {Events}' ./
+
+`[1:]
+
 func main() {
 	ctx := context.Background()
 
@@ -17,12 +41,16 @@ func main() {
 	var pth string
 	var cmd string
 
-	fs := flag.NewFlagSet("fswatch", flag.ExitOnError)
+	fs := flag.NewFlagSet("fswatch", flag.ContinueOnError)
+	fs.Usage = func() {
+		os.Stderr.Write([]byte(helpText))
+		fs.PrintDefaults()
+	}
 	fs.StringSliceVarP(&events, "events", "e", nil, "Comma-separated list of events to watch.")
 	fs.StringVarP(&cmdTpl, "command", "c", "echo {Path} {Events}", "Command template")
 	err := fs.Parse(os.Args[1:])
 	if err == flag.ErrHelp {
-		panic("TODO: usage")
+		return
 	}
 
 	args := fs.Args()

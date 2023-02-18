@@ -11,12 +11,11 @@ Currently the only way to install `fswatch` is the `golang` toolkit:
 $ go install github.com/tasdomas/fswatch
 ```
 
-## Use
+## Usage
 
 ``` shell
-fswatch [ --events create,write,remove,rename,chmod ]
+fswatch [ --events create,write,remove,rename,chmod ] [ --command <command> ]
 ```
-
 
 By default `fswatch` will listen for all events on a specified path (a directory or a file).
 The events include:
@@ -26,6 +25,12 @@ The events include:
  - `rename`: renaming a file or subdirectory
  - `chmod`: changing access permissions
 
-
 Watching a directory will watch for changes to files and subdirectories directly inside it but will
 not watch for changes inside subdirectories.
+
+The change event's path and comma-separated list of event names can be passed to the command using
+`{Path}` and `{Events}` placeholders:
+
+``` shell
+fswatch --command 'echo {Path} {Events}' ./
+```

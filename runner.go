@@ -51,7 +51,10 @@ func (c *CommandRunner) Run(ctx context.Context, path string, events []string) e
 
 // Wait for all commands to exit.
 func (c *CommandRunner) Wait() {
-	c.group.Wait()
+	err := c.group.Wait()
+	if err != nil {
+		log.Printf("error waiting for subprocesses to exit: %v", err)
+	}
 }
 
 func splitCommand(cmd string) (name string, args []string) {
@@ -66,9 +69,4 @@ func splitCommand(cmd string) (name string, args []string) {
 		return "", nil
 	}
 	return cmdParts[0], cmdParts[1:]
-}
-
-type cmdParam struct {
-	Path   string
-	Events string // comma-separated list of events
 }

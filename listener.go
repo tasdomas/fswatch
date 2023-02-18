@@ -47,7 +47,10 @@ func (l Listener) Listen(ctx context.Context, events <-chan fsnotify.Event, erro
 				continue
 			}
 			log.Printf("received event %s on path %s", evt.Op, evt.Name)
-			l.runner.Run(ctx, evt.Name, eventList(evt.Op))
+			err := l.runner.Run(ctx, evt.Name, eventList(evt.Op))
+			if err != nil {
+				log.Printf("error running command for path %q: %v", evt.Name, err)
+			}
 		case err := <-errors:
 			log.Printf("fsnotify error: %v", err)
 		case <-ctx.Done():

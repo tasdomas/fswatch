@@ -1,8 +1,11 @@
-name: run test
+name: test and lint
 on:
-  - push
-  - pull_request
-
+  push:
+    tags:
+      - v*
+    branches:
+      - main
+  pull_request:
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,3 +15,4 @@ jobs:
         with:
           go-version-file: 'go.mod'
       - run: go test ./...
+      - uses: golangci/golangci-lint-action@v3

@@ -26,18 +26,26 @@ func TestCommandRunner(t *testing.T) {
 		os.Unsetenv(outputDestEnvVar)
 	})
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Setup executable path to point to the test file.
 	executablePath, err := os.Executable()
 	c.Assert(err, qt.IsNil)
-	args := strings.Join(os.Args, "|")
-	println(args)
-
 	cmd := fmt.Sprintf("%s -test.run TestCommandRunnerStandin -- {Path} {Events}", executablePath)
-	runner := fswatch.NewCommandRunner(cmd)
-	err = runner.Run(ctx, "/tmp", []string{"evt"})
-	c.Assert(err, qt.IsNil)
-	runner.Wait()
 
+	// Setup runner.
+	runner := fswatch.NewCommandRunner(cmd)
+	triggerChan := make(chan fswatch.Trigger, 1)
+	triggerChan <- fswatch.Trigger{
+		Path:   "/tmp",
+		Events: []string{"evt"},
+	}
+
+	go func() {
+		err := runner.Start(ctx, triggerChan)
+		c.Assert(err, qt.IsNil)
+	}()
+	cancel()
 	out := readOutput(c, outputDest)
 	c.Assert(out, qt.Equals, "/tmp evt")
 }

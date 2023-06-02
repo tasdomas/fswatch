@@ -11,7 +11,6 @@ import (
 )
 
 type runner interface {
-	Run(ctx context.Context, path string, events []string) error
 }
 
 // NewListener creates a  new listener that will respond to the provided
@@ -47,10 +46,12 @@ func (l Listener) Listen(ctx context.Context, events <-chan fsnotify.Event, erro
 				continue
 			}
 			log.Printf("received event %s on path %s", evt.Op, evt.Name)
-			err := l.runner.Run(ctx, evt.Name, eventList(evt.Op))
-			if err != nil {
-				log.Printf("error running command for path %q: %v", evt.Name, err)
-			}
+			/*
+				err := l.runner.Run(ctx, evt.Name, eventList(evt.Op))
+				if err != nil {
+					log.Printf("error running command for path %q: %v", evt.Name, err)
+				}
+			*/
 		case err := <-errors:
 			log.Printf("fsnotify error: %v", err)
 		case <-ctx.Done():

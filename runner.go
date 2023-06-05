@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -13,19 +15,38 @@ import (
 const PathPlaceholder = "{Path}"
 const EventsPlaceholder = "{Events}"
 
+var RunCmd = runCmdImpl
+
+// RunnerOptions are used to optionally configure
+// the command runner.
+type RunnerOption func(*CommandRunner)
+
+// WithCommandTimeout sets a timeout for commands executed by the runner.
+func WithCommandTimeout(timeout time.Duration) RunnerOption {
+	return func(c *CommandRunner) {
+		c.timeout = timeout
+	}
+}
+
 // CommandRunner
 type CommandRunner struct {
 	tpl   string
 	group *errgroup.Group
+
+	timeout time.Duration
 }
 
 // NewCommandRunner creates a new command runner with the specified
 // command template.
-func NewCommandRunner(cmd string) *CommandRunner {
-	return &CommandRunner{
+func NewCommandRunner(cmd string, options ...RunnerOption) *CommandRunner {
+	c := &CommandRunner{
 		tpl:   cmd,
 		group: new(errgroup.Group),
 	}
+	for _, option := range options {
+		option(c)
+	}
+	return c
 }
 
 // Run runs the runners command template with the provided file path and event list.
@@ -35,17 +56,32 @@ func (c *CommandRunner) Run(ctx context.Context, path string, events []string) e
 	cmdRaw = strings.ReplaceAll(cmdRaw, EventsPlaceholder, eventList)
 
 	name, args := splitCommand(cmdRaw)
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var ctxDone context.CancelFunc
+	if c.timeout != 0 {
+		ctx, ctxDone = context.WithDeadline(ctx, time.Now().Add(c.timeout))
+	}
 	c.group.Go(func() error {
-		err := cmd.Run()
+		err := RunCmd(ctx, ctxDone, name, args...)
 		if err != nil {
-			log.Printf("error executing %q: %v", cmdRaw, err)
+			log.Printf("error executing %q: %v", name, err)
 		}
 		// Hide the error.
 		return nil
 	})
+	return nil
+}
+
+func runCmdImpl(ctx context.Context, ctxDone context.CancelFunc, name string, args ...string) error {
+	if ctxDone != nil {
+		defer ctxDone()
+	}
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("command error: %w", err)
+	}
 	return nil
 }
 

@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +14,7 @@ import (
 
 const outputDestEnvVar = "CMD_TEST_DST"
 
-func TestCommandRunner(t *testing.T) {
+func TestRunCommand(t *testing.T) {
 	c := qt.New(t)
 
 	// Setup output file.
@@ -27,21 +26,19 @@ func TestCommandRunner(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	executablePath, err := os.Executable()
+	cmdName, err := os.Executable()
 	c.Assert(err, qt.IsNil)
-	args := strings.Join(os.Args, "|")
-	println(args)
 
-	cmd := fmt.Sprintf("%s -test.run TestCommandRunnerStandin -- {Path} {Events}", executablePath)
-	runner := fswatch.NewCommandRunner(cmd)
-	err = runner.Run(ctx, "/tmp", []string{"evt"})
+	cmdArgs := []string{"-test.run", "TestCommandRunnerStandin", "--", "some_path"}
+	err = fswatch.RunCmd(ctx, nil, cmdName, cmdArgs...)
 	c.Assert(err, qt.IsNil)
-	runner.Wait()
 
 	out := readOutput(c, outputDest)
-	c.Assert(out, qt.Equals, "/tmp evt")
+	c.Assert(out, qt.Equals, "some_path")
 }
 
+// TestCommandRunnerStandin is a dummy test function that is executed as an external command
+// by the tests.
 func TestCommandRunnerStandin(t *testing.T) {
 	outputDest := os.Getenv("CMD_TEST_DST")
 	if outputDest == "" {

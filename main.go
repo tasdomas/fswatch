@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/fsnotify/fsnotify"
@@ -65,14 +66,22 @@ func main() {
 	}
 	_ = cmd
 
+	group, ctx := errgroup.WithContext(ctx)
+
 	watcher, err := NewWatcher(pth)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start watcher: %s\n", err.Error())
 		os.Exit(2)
 	}
-
-	group, ctx := errgroup.WithContext(ctx)
-
+	group.Go(func() error {
+		<-ctx.Done()
+		err := watcher.Close()
+		if err != nil {
+			log.Printf("failed to stop watcher: %s\n", err.Error())
+			return err
+		}
+		return nil
+	})
 	listener, err := NewListener(events)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to setup listener: %s\n", err.Error())
@@ -81,7 +90,6 @@ func main() {
 	group.Go(func() error {
 		return listener.Listen(ctx, watcher.Events, watcher.Errors)
 	})
-
 	runner := NewCommandRunner(cmdTpl)
 	group.Go(func() error {
 		return runner.Start(ctx, listener.Chan())
@@ -89,7 +97,7 @@ func main() {
 
 	err = group.Wait()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "exit reason: %q", err)
+		fmt.Fprintf(os.Stderr, "exit reason: %s\n", err.Error())
 		os.Exit(1)
 	}
 }

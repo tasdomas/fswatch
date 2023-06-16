@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/fsnotify/fsnotify"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
 )
+
+var ErrSignal = fmt.Errorf("signal received")
 
 var helpText string = `
 fswatch - watch provided path for changes and run a specified command
@@ -68,6 +72,10 @@ func main() {
 
 	group, ctx := errgroup.WithContext(ctx)
 
+	group.Go(func() error {
+		return ListenForSignals(ctx)
+	})
+
 	watcher, err := NewWatcher(pth)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start watcher: %s\n", err.Error())
@@ -115,4 +123,16 @@ func NewWatcher(path string) (*fsnotify.Watcher, error) {
 	}
 
 	return watcher, nil
+}
+
+// ListenForSignals listens for interrupts.
+func ListenForSignals(ctx context.Context) error {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case <-ch:
+		return ErrSignal
+	case <-ctx.Done():
+		return nil
+	}
 }

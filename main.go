@@ -7,6 +7,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/sync/errgroup"
 )
 
 var helpText string = `
@@ -70,15 +71,27 @@ func main() {
 		os.Exit(2)
 	}
 
-	runner := NewCommandRunner(cmdTpl)
+	group, ctx := errgroup.WithContext(ctx)
 
-	listener, err := NewListener(runner, events)
+	listener, err := NewListener(events)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to setup listener: %s\n", err.Error())
 		os.Exit(2)
 	}
+	group.Go(func() error {
+		return listener.Listen(ctx, watcher.Events, watcher.Errors)
+	})
 
-	listener.Listen(ctx, watcher.Events, watcher.Errors)
+	runner := NewCommandRunner(cmdTpl)
+	group.Go(func() error {
+		return runner.Start(ctx, listener.Chan())
+	})
+
+	err = group.Wait()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "exit reason: %q", err)
+		os.Exit(1)
+	}
 }
 
 // NewWatcher creates a new watcher monitoring the provided path.

@@ -10,12 +10,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-type runner interface {
-}
-
 // NewListener creates a  new listener that will respond to the provided
 // set of events.
-func NewListener(r runner, events []string) (*Listener, error) {
+func NewListener(events []string) (*Listener, error) {
 	var filter eventFilter = allEvents{}
 	if len(events) > 0 {
 		var err error
@@ -26,18 +23,23 @@ func NewListener(r runner, events []string) (*Listener, error) {
 	}
 	return &Listener{
 		eventFilter: filter,
-		runner:      r,
+		output:      make(chan Trigger),
 	}, nil
 }
 
 // Listener listens for operation events emitted by fsnotify.Watcher.
 type Listener struct {
 	eventFilter eventFilter
-	runner      runner
+	output      chan Trigger
+}
+
+// Chan returns the output channel for the listener's filtered events.
+func (l Listener) Chan() <-chan Trigger {
+	return l.output
 }
 
 // Listen starts processing the provided event and error channels.
-func (l Listener) Listen(ctx context.Context, events <-chan fsnotify.Event, errors <-chan error) {
+func (l Listener) Listen(ctx context.Context, events <-chan fsnotify.Event, errors <-chan error) error {
 	for {
 		select {
 		case evt := <-events:
@@ -46,16 +48,14 @@ func (l Listener) Listen(ctx context.Context, events <-chan fsnotify.Event, erro
 				continue
 			}
 			log.Printf("received event %s on path %s", evt.Op, evt.Name)
-			/*
-				err := l.runner.Run(ctx, evt.Name, eventList(evt.Op))
-				if err != nil {
-					log.Printf("error running command for path %q: %v", evt.Name, err)
-				}
-			*/
+			l.output <- Trigger{
+				Path:   evt.Name,
+				Events: eventList(evt.Op),
+			}
 		case err := <-errors:
 			log.Printf("fsnotify error: %v", err)
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 	}
 }

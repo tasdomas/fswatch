@@ -99,14 +99,6 @@ type allEvents struct{}
 // Pass allows all events to go through.
 func (allEvents) Pass(fsnotify.Op) bool { return true }
 
-var ops = map[fsnotify.Op]string{
-	fsnotify.Chmod:  "chmod",
-	fsnotify.Create: "create",
-	fsnotify.Remove: "remove",
-	fsnotify.Rename: "rename",
-	fsnotify.Write:  "write",
-}
-
 func eventList(op fsnotify.Op) []string {
 	var result []string
 	for evt, name := range ops {

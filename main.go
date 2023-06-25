@@ -81,6 +81,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to start watcher: %s\n", err.Error())
 		os.Exit(2)
 	}
+
 	group.Go(func() error {
 		<-ctx.Done()
 		err := watcher.Close()
@@ -90,9 +91,9 @@ func main() {
 		}
 		return nil
 	})
-	listener, err := NewListener(events)
+	filteredEvents, err := StartFilter(watcher.Events, events)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to setup listener: %s\n", err.Error())
+		fmt.Fprintf(os.Stderr, "failed to setup event filter: %s\n", err.Error())
 		os.Exit(2)
 	}
 	group.Go(func() error {

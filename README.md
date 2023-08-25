@@ -1,3 +1,4 @@
+![tests](https://github.com/tasdomas/fswatch/actions/workflows/test.yml/badge.svg)
 # fswatch
 
 `fswatch` is a simple command-line tool for watching filesystem changes and running a command

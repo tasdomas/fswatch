@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	flag "github.com/spf13/pflag"
@@ -40,6 +41,8 @@ func main() {
 	var cmdTpl string
 	var pth string
 	var cmd string
+	var limit int
+	var timeout string
 
 	fs := flag.NewFlagSet("fswatch", flag.ContinueOnError)
 	fs.Usage = func() {
@@ -48,6 +51,8 @@ func main() {
 	}
 	fs.StringSliceVarP(&events, "events", "e", nil, "Comma-separated list of events to watch.")
 	fs.StringVarP(&cmdTpl, "command", "c", "echo {Path} {Events}", "Command template")
+	fs.StringVarP(&timeout, "timeout", "t", "", "Timeout for running commands")
+	fs.IntVarP(&limit, "limit", "l", -1, "Limit number of concurrently running commands")
 	err := fs.Parse(os.Args[1:])
 	if err == flag.ErrHelp {
 		return
@@ -70,7 +75,19 @@ func main() {
 		os.Exit(2)
 	}
 
-	runner := NewCommandRunner(cmdTpl)
+	runnerOptions := []RunnerOption{}
+	if limit > 0 {
+		runnerOptions = append(runnerOptions, WithLimitedConcurrent(limit))
+	}
+	if timeout != "" {
+		tOut, err := time.ParseDuration(timeout)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "invalid timeout specified: %s\n", err.Error())
+			os.Exit(2)
+		}
+		runnerOptions = append(runnerOptions, WithTimeout(tOut))
+	}
+	runner := NewCommandRunner(cmdTpl, runnerOptions...)
 
 	listener, err := NewListener(runner, events)
 	if err != nil {

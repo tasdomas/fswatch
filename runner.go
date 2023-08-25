@@ -21,10 +21,17 @@ var RunCmd = runCmdImpl
 // the command runner.
 type RunnerOption func(*CommandRunner)
 
-// WithCommandTimeout sets a timeout for commands executed by the runner.
-func WithCommandTimeout(timeout time.Duration) RunnerOption {
+// WithTimeout sets a timeout for commands executed by the runner.
+func WithTimeout(timeout time.Duration) RunnerOption {
 	return func(c *CommandRunner) {
 		c.timeout = timeout
+	}
+}
+
+// WithLimitedConcurrent limits the number of concurrently running commands.
+func WithLimitedConcurrent(limit int) RunnerOption {
+	return func(c *CommandRunner) {
+		c.group.SetLimit(limit)
 	}
 }
 
